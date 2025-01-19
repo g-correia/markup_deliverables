@@ -1,0 +1,72 @@
+---
+title: "My Reproducible Manuscript [@lasser_creating_2020]"
+format: 
+  pdf:
+    documentclass: article
+    fontfamily: times
+  docx: default
+bibliography: MyLibrary.bib
+author: Gabriela Correia
+---
+```{r, echo = F}
+
+# Load penguins
+library(ggplot2)
+library(readr)
+library(quarto)
+
+```
+
+```{r, echo = F}
+#| file: "scripts/do_addition.R"
+#| eval: true 
+```
+
+## Meet Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. 
+To learn more about Quarto see <https://quarto.org>.
+
+## Meet the penguins
+
+```{r, echo = F}
+# Read data
+penguins <- read.csv("data/data.csv")
+
+```
+
+The `penguins` data from the [palmerpenguins](https://allisonhorst.github.io/palmerpenguins/) package contains size measurements for `300+44` penguins from three species observed on three islands in the Palmer Archipelago, Antarctica. There are `r sum(penguins$Species=='Chinstrap penguin (Pygoscelis antarctica)')` penguins of type Chinstrap, `r sum(penguins$Species=='Gentoo penguin (Pygoscelis papua)')` Gentoo and `r sum(penguins$Species=='Adelie Penguin (Pygoscelis adeliae)')` Adelie.
+
+Again, the total of penguins in the data set is `r do_addition(sum(as.numeric(penguins$Species=='Chinstrap penguin (Pygoscelis antarctica)')), as.numeric(sum(penguins$Species=='Gentoo penguin (Pygoscelis papua)'))) + sum(penguins$Species=='Adelie Penguin (Pygoscelis adeliae)')`.
+
+
+
+![@noauthor_palmerpenguins_nodate](https://allisonhorst.github.io/palmerpenguins/reference/figures/lter_penguins.png)
+
+## Results
+
+The plot below shows the relationship between flipper and bill lengths of these penguins.
+
+\vspace{0.5cm} 
+
+```{r, echo = F, warning = F}
+
+# Plot penguins
+ggplot(penguins, 
+       aes(x = `Flipper.Length..mm.`, y = `Culmen.Length..mm.`)) +
+        geom_point(aes(color = Species, shape = Species)) +
+        scale_color_manual(values = c("darkorange","purple","cyan4")) +
+        labs(
+                title = "Flipper and Culmen length",
+                subtitle = "Dimensions for penguins at Palmer Station LTER",
+                x = "Flipper length (mm)", y = "Culmen length (mm)",
+                color = "Penguin species", shape = "Penguin species"
+        ) +
+        theme_minimal(base_family = "Times")
+
+```
+
+```{r, echo = F, warning = F}
+
+quarto_render("my-reproducible-manuscript.qmd", output_format = "docx")
+```
