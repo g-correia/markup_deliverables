@@ -1,0 +1,143 @@
+---
+title: "Week 2 - Exercise 2"
+author:
+  - name: "Gabriela Correia"
+    id: jb
+    orcid: 0009-0006-8368-7670
+    email: g.santoscorreia@students.uu.nl
+format: revealjs
+logo: cat-face.jpeg
+bibliography: bibliography.bib
+nocite: "@*"
+---
+
+## Cats!
+
+![An animated cat extracted from this [website.](https://www.svgator.com/blog/how-to-create-an-animated-cat/)](cat-logo.png){fig-align="center" width="40%"}
+
+
+## 
+<div style="font-size: 50%;">
+```{r}
+library(DT)
+library(MASS)
+
+data(cats, package="MASS")
+
+data <- data.frame(
+  Sex = cats$Sex,
+  `Body weight` = cats$Bwt,
+  `Heart weight` = cats$Hwt
+)
+
+datatable_output <- datatable(data, options = list(pageLength = 5, autoWidth = TRUE), rownames = FALSE)
+
+
+htmltools::tags$div(
+  style = "overflow-y: auto; max-height: 500px;",
+  datatable_output
+)
+```
+
+</div>
+This is the cats dataset, from the `MASS` package [@MASS].
+
+---
+
+## Interactive Plot of Cats
+
+```{r}
+library(plotly)
+
+fig <- plot_ly(
+  data = cats,
+  x = ~Bwt,
+  y = ~Hwt,
+  type = 'scatter',
+  mode = 'markers',
+  marker = list(size = 8)
+) %>%
+  layout(
+    title = "Cats body and heart weights",
+    xaxis = list(title = "Body weight (kg)"),
+    yaxis = list(title = "Heart Weight (g)"),
+    hovermode = "closest",
+    width = 1000,  # Adjust the width as needed
+    height = 450, # Adjust the height as needed
+    hovermode = "closest"
+  )
+
+
+fig
+```
+
+Placing the cursor on top of the datapoints will display the exact X and Y values.
+
+
+## Two columns + Multi-aligned Equation
+
+:::{.columns}
+::: {.column width="50%"}
+### Is the cat dead?
+
+![Extracted from [website.](https://www.dreamstime.com/set-physics-formula-symbols-equations-schrodinger-cat-isolated-white-background-hand-drawn-illustration-back-to-school-image274276699)](cat-dead-alive.png){fig-align="center" width="80%"}
+:::
+
+::: {.column width="50%"}
+### Schrödinger's Equation
+
+$$
+\begin{aligned}
+  &- \frac{\hbar^2}{2m} \nabla^2 \psi(x, t) + V(x) \psi(x, t) \\
+  &= i \hbar \frac{\partial}{\partial t} \psi(x, t)
+\end{aligned}
+$$
+:::
+:::
+
+## Code 
+
+Fitting a linear model to see how Heart weight depends on Body weight
+
+```{r}
+#| eval: FALSE
+#| echo: TRUE
+
+
+
+cat_lm <- lm(Hwt ~ Bwt, data = cats)
+summary(cat_lm)
+
+
+```
+
+## Cached and Labeled R Code
+
+````markdown
+{r}
+#| cache: TRUE
+#| label: generated-data
+
+cat_lm <- lm(Hwt ~ Bwt, data = cats)
+summary(cat_lm)
+
+````
+
+
+
+## Reproducible Environment
+
+Creating a reproducible environment.
+
+```{r}
+#| code-line-numbers: true
+#| label: renv-envir
+#| echo: fenced
+
+library(renv)
+renv::init()
+```
+
+## References
+::: {#refs}
+:::
