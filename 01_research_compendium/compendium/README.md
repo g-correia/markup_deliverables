@@ -1,6 +1,6 @@
+# INFOMDA2 Final Assignment
 
 This repository contains the report for the final assignment of the course INFOMDA2.
-
 
 Data:
 
