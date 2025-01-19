@@ -1,0 +1,248 @@
+---
+title: "report_code"
+format: html
+authors:  Gabriela Correia, Zhipei Wang
+
+
+---
+```{r message=FALSE}
+# loading packages
+library(ggdendro)
+library(tidyverse)
+library(patchwork)
+library(sparcl)
+library(factoextra)
+library(caret)
+library(fpc)
+library(cluster)
+```
+
+
+```{r}
+# read in the data (the training set only)
+df <- read.csv("../raw_data/training_obsolete.csv")
+```
+
+
+```{r}
+# take a glimpse
+head(df)
+```
+
+```{r}
+# remove the class column and standardize the data
+df_unsupervised <- df[, -1]
+df_unsupervised <- scale(df_unsupervised)
+```
+
+# hierarchical clustering
+```{r}
+# set the seed for reproducibility
+set.seed(123)
+
+# hierarchical clustering with euclidean distance and complete linkage
+distances_hc_eucl <- dist(df_unsupervised, method = "euclidean")
+result_hc_eucl_comp <- hclust(distances_hc_eucl, method = "complete")
+ggdendrogram(result_hc_eucl_comp, labels = FALSE)
+```
+
+```{r}
+# save the clustering result as a factor
+clus_hc_eucl_comp <- as.factor(cutree(result_hc_eucl_comp, 9))
+```
+
+
+## Evaluating cluster results
+
+### Bootstrap stability
+```{r}
+cboot_hc <- clusterboot(df_unsupervised, clustermethod = hclustCBI, method = "complete", k = 9, seed = 123)
+
+# the vector of cluster stabilities
+cboot_hc$bootmean
+```
+
+Values close to 1 indicate stable clusters, so the first 3, fifth and seventh clusters have relatively higher stability.
+
+### External validity
+```{r}
+df_labels <- df
+df_labels$cluster_hc_eucl_comp <- clus_hc_eucl_comp  # Add cluster assignments to the original dataset
+
+# Count the number of occurrences of each class within each cluster
+cluster_hc_eucl_comp_mapping <- df_labels %>%
+  group_by(cluster_hc_eucl_comp, class) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(cluster_hc_eucl_comp, desc(count))  # Ensure sorting by most frequent class
+cluster_hc_eucl_comp_mapping
+```
+
+```{r}
+# Select the most frequent class for each cluster
+cluster_hc_eucl_comp_lookup <- cluster_hc_eucl_comp_mapping %>%
+  group_by(cluster_hc_eucl_comp) %>%
+  filter(count == max(count)) %>%  # Select the most frequent class
+  ungroup() %>%
+  select(cluster_hc_eucl_comp, class)  # Keep only cluster-class mapping
+cluster_hc_eucl_comp_lookup
+```
+
+
+```{r}
+# Join the mapping back to the original dataset
+df_labels <- df_labels %>%
+  left_join(cluster_hc_eucl_comp_lookup, by = "cluster_hc_eucl_comp", , suffix = c("", "_pred_hc_eucl_comp"))
+df_labels$class <- as.factor(df_labels$class)
+df_labels$class_pred_hc_eucl_comp <- as.factor(df_labels$class_pred_hc_eucl_comp)
+
+head(df_labels)
+```
+
+```{r}
+# confusion matrix
+
+#add factor level called 'tree', 'shadow', 'soil'
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'tree ')
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'shadow ')
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'soil ')
+
+confusionMatrix(df_labels$class, df_labels$class_pred_hc_eucl_comp)
+```
+The clustering mostly struggled with the distinction between {"tree", "grass"}, and {"asphalt", "shadow"}, and {concrete", "soil"}, which makes sense given the similarities between these sets of classes, and the difficulty of this clustering task.
+
+### Internal indices
+```{r}
+# compute the silhouette coefficient
+mean(silhouette(cutree(result_hc_eucl_comp, 9), distances_hc_eucl)[, 3])
+```
+The Silhouette coefficient is low, indicating that the clustering might be inaccuate, with overlapping clusters and points being misclassified. This has been shown above when we use external validity.
+
+# sparse hierarchical clustering
+
+```{r}
+# use pca to do dimension reduction
+pca <- prcomp(df_unsupervised,
+                     center = TRUE,
+                     scale = TRUE)
+
+screeplot(pca, type = 'lines')
+```
+
+Using 9 principal components would be sufficient to explain the variability in the data.
+
+```{r}
+# set the seed for reproducibility
+set.seed(123)
+
+# use the first 9 principal components to run hierarchical clustering
+distances <- dist(pca$x[, 1:9], method = "euclidean")
+result_pca <- hclust(distances, method = "complete")
+ggdendrogram(result_pca, labels = FALSE)
+```
+
+
+```{r}
+# save the clustering result as a factor
+clus_pca <- as.factor(cutree(result_pca, 9))
+```
+
+
+## Evaluating cluster results
+
+### Bootstrap stability
+```{r}
+cboot_shc <- clusterboot(pca$x[, 1:9], clustermethod = hclustCBI, method = "complete", k = 9, seed = 123)
+
+# the vector of cluster stabilities
+cboot_shc$bootmean
+```
+
+Values close to 1 indicate stable clusters, so generally the stability here is worse than just using the hierarchical clustering, except for the 4th cluster.
+
+### External validity
+```{r}
+df_labels$cluster_pca <- clus_pca  # Add cluster assignments to the original dataset
+
+# Count the number of occurrences of each class within each cluster
+cluster_pca_mapping <- df_labels %>%
+  group_by(cluster_pca, class) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(cluster_pca, desc(count))  # Ensure sorting by most frequent class
+cluster_pca_mapping
+```
+
+```{r}
+# Select the most frequent class for each cluster
+cluster_pca_lookup <- cluster_pca_mapping %>%
+  group_by(cluster_pca) %>%
+  filter(count == max(count)) %>%  # Select the most frequent class
+  ungroup() %>%
+  select(cluster_pca, class)  # Keep only cluster-class mapping
+cluster_pca_lookup
+```
+
+```{r}
+# Join the mapping back to the original dataset
+df_labels <- df_labels %>%
+  left_join(cluster_pca_lookup, by = "cluster_pca", , suffix = c("", "_pred_pca"))
+df_labels$class <- as.factor(df_labels$class)
+df_labels$class_pred_pca <- as.factor(df_labels$class_pred_pca)
+
+head(df_labels)
+```
+
+```{r}
+# confusion matrix
+confusionMatrix(df_labels$class, df_labels$class_pred_pca)
+```
+
+The accuracy is also lower than that of plain hierarchical clustering.
+
+```{r}
+p1 <- pca$x[, 1:9] %>% 
+  ggplot(aes(x = PC1, y = PC2, col = clus_pca)) + 
+  geom_point() + 
+  theme_minimal()
+
+p2 <- pca$x[, 1:9] %>% 
+  # filter(class %in% c("tree ", "grass ")) %>%
+  ggplot(aes(x = PC1, y = PC2, col = as.factor(df$class))) +
+  labs(col =  "class") +
+  geom_point() + 
+  theme_minimal()
+
+p2 + p1
+```
+
+```{r}
+# examples of where the clusters are easily to be misclassified
+
+p3 <- pca$x[which(df$class %in% c("tree ", "grass ")), 1:9] %>%
+  ggplot(aes(x = PC1, y = PC2, col = as.factor(df$class[which(df$class %in% c("tree ", "grass "))]))) +
+  labs(col =  "class") +
+  scale_x_continuous(limits = c(-20, 15)) + 
+  scale_y_continuous(limits = c(-20, 15)) + 
+  geom_point() + 
+  theme_minimal()
+
+p4 <- pca$x[which(df$class %in% c("soil ", "concrete ")), 1:9] %>%
+  ggplot(aes(x = PC1, y = PC2, col = as.factor(df$class[which(df$class %in% c("soil ", "concrete "))]))) +
+  labs(col =  "class") +
+  scale_x_continuous(limits = c(-20, 15)) + 
+  scale_y_continuous(limits = c(-20, 15)) + 
+  geom_point() + 
+  theme_minimal()
+
+p3 + p4
+```
+
+### Internal indices
+```{r}
+# compute the silhouette coefficient
+mean(silhouette(cutree(result_pca, 9), distances)[, 3])
+```
+
+The Silhouette coefficient is somewhat higher than that of the plain hierarchical clustering, which could due to that we were able to "identify" one more class, by giving a cluster the label "shadow", which we weren't able to do previously.
+
+
+

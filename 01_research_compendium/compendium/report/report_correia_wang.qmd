@@ -1,0 +1,439 @@
+---
+title: "High-dimensional Reduction on the Context of Urban Planning"
+format: 
+  pdf:
+    toc: false
+    number-sections: true
+    documentclass: article
+    geometry: "margin=4cm"
+    bibliography: bibliography.bib
+abstract: |
+    Urban land cover data is essential for sustainable urban planning, aiding in resource management, environmental resilience, and equitable infrastructure development. However, the high dimensionality of such data introduces challenges related to noise, redundancy, and computational complexity, complicating classification efforts. This study examines the performance of Hierarchical Clustering, both with and without dimensionality reduction via Principal Component Analysis (PCA), on a high-resolution urban land cover dataset from Deerfield Beach, Florida. While PCA improved the Silhouette coefficient from 0.16 to 0.19 and enhanced cluster separability for certain classes such as shadow, significant misclassification persisted among spectrally similar classes like tree vs. grass and soil vs. concrete. These results underscore PCA’s potential to complement clustering by reducing dimensionality and noise, but highlight its limitations in resolving intrinsic spectral ambiguities. Future research should explore alternative dimensionality reduction techniques, such as UMAP or t-SNE, and multi-modal datasets, including LiDAR and hyperspectral imagery, to improve class separability and support evidence-based urban planning.
+    
+author: 
+  - Gabriela Correia
+  - Zhipei Wang
+---
+
+# Introduction
+
+Urban planning plays a crucial role in climate and environmental decision-making, as it directly influences how cities grow, how resources are allocated, and how sustainable these environments can be over time. One critical aspect of this process is understanding the distribution and dynamics of urban land cover , which directly impacts infrastructure planning, resource management, and climate adaptation strategies. High-resolution land cover data offers valuable insights into urban growth patterns, theoptimization of green spaces, and the design of resilient transportation networks. For example, identifying impervious surfaces and vegetation cover can help mitigate urban heat islands, while mapping flood-prone areas can enhance emergency response strategies. Initiatives such as the Copernicus Urban Atlas (@urban_atlas) underscore the importance of detailed land cover data in providing actionable guidance for urban planning decisions.
+
+Urban land cover classification also facilitates the identification of vulnerable areas that may face disproportionate climate risks, such as extreme heat or flooding. Such data enables planners to create equitable and resilient urban environments, ensuring access to critical resources and enhancing overall livability (@johnson12). Moreover, the ability to track changes in vegetation, water bodies, and built environments over time supports biodiversity conservation efforts and informs strategies to reduce pollution and promote green infrastructure (@durduran15). Given the increasing complexity of urban environments, accurate and scalable methods for classifying land cover are essential for enabling data-driven decisions that support sustainable urban development.
+
+In this study, we utilize the Urban Land Cover (ULC) dataset from the University of California, Irvine (UCI) Machine Learning Repository to explore methods for enhancing urban land cover classification. This dataset consists of high-resolution atmospheric images of Deerfield Beach, Florida, USA, and classifies the region into nine distinct land cover types: trees, grass, soil, concrete, asphalt, buildings, vehicles, pools, and shadows (See Figure 1). It contains 675 observations and 147 features, representing various spatial image characteristics such as:
+
+- Pixel's Spectral Magnitude: mean, standard deviation of spectral bands;
+- Textural: Mean, variance and correlation derived from the Grey Level Co-occurance Matrix (GLCM) as proposed by Haralik (@haralick73), one of the most common methods to obtain texture measures;
+- Formal Characteristics: region's shape description.
+
+![Example map of Deerfield Beach, Florida classification into seven land cover types. Extracted from @johnson12](../images/trsl_a_705440_o_f0002g.png){fig-align="center" width="80%"}
+
+
+Given the dataset’s high dimensionality and rich feature space, traditional clustering methods like Hierarchical Clustering face challenges related to noise, feature redundancy, and computational inefficiency. This complexity is particularly problematic when attempting to separate spectrally similar classes. To improve clustering performance, we propose incorporating Principal Component Analysis (PCA) as a dimensionality reduction step prior to applying Hierarchical Clustering. PCA transforms the original high-dimensional data into a smaller set of uncorrelated components that retain most of the variance in the dataset. By reducing noise and redundancy, PCA has the potential to sharpen cluster boundaries and enhance the interpretability of clustering outcomes. 
+
+The central question guiding this analysis is: *Does the incorporation of dimensionality reduction techniques like PCA improve the modeling and classification of urban land cover data compared to traditional Hierarchical Clustering?* By evaluating the performance of these methods using the ULC dataset, we aim to provide insights into the utility of PCA for clustering high-dimensional land cover data and its implications for urban planning.
+
+
+# Methods
+## Hierarchical Clustering
+
+Hierarchical clustering is chosen for its flexibility, particularly in unsupervised contexts where the number of clusters is not known beforehand. In the context of urban land cover, it makes sense to allow the data to define clusters based on similarity, because the exact number of distinct land cover categories may vary or overlap in different contexts. This method also helps us focus on the relationships between data points, which can be crucial when distinguishing between, for example, semi-overlapping categories like shadows and buildings.
+
+The primary dissimilarity measure will be the Euclidean distance with normalized features. Normalization ensures that all variables contribute equally to the clustering process, avoiding bias introduced by differing units or scales, enhancing consistency. 
+
+Two linkage methods will be considered. First, Complete linkage will be the primary choice due to its tendency to produce compact and well-separated clusters, which aligns with the clear distinctions expected between categories such as trees, asphalt, and water. The Average linkage will serve as a secondary option, as it balances compactness and separation, making it suitable for scenarios with moderate overlap between clusters (e.g., shadows and buildings).
+
+## Dimension reduction
+
+Principal Component Analysis (PCA) is employed to handle high-dimensional data in an unsupervised manner—an approach that is well-established in clustering research (see, for example, @haralick73; @johnson12).
+
+By identifying those components that capture the majority of data variance, PCA projects the high-dimensional dataset onto a lower-dimensional subspace. This subspace retains most of the meaningful variability, improving cluster separability and reducing computational complexity.
+
+Since our ultimate goal is to recover classes via clustering—comparing the results against actual labels only for validation—we do not introduce class information during training. This means PCA and Hierarchical Clustering work together, since they are both unsupervised methods.
+
+
+## Validation of results
+
+To assess how well our clustering aligns with true class labels, we will assess cluster assignments in comparison to the known land cover categories. For each cluster obtained from the model, we will map each cluster to one of the real classes by assigning it to the class that appears most frequently in that cluster. We will then compare the inferred results to the real classes through the use of tables and visualizations.
+
+To validate the quality of the clusters, we will evaluate Bootstrapped stability, the Within-Cluster Sum of Squares (Cohesion) and Between-Cluster Distance (Separation). Bootstrapped stability measures how robust the cluster boundaries are when repeatedly sampling from the dataset, indicating whether minor variations in the data lead to significant changes in cluster membership. Cohesion measures the compactness of clusters by calculating the sum of squared distances between each data point and the centroid of its cluster, whereas Separation measures the distinctiveness of clusters by computing the distance between the centroids of different clusters. They are defined as follows:
+
+\begin{equation}
+\text{Cohesion} = \sum_{k=1}^{K} \sum_{i \in C_k} ||x_i - \mu_k||^2
+\end{equation}
+
+\begin{equation}
+\text{Separation} = \sum_{k=1}^{K} ||\mu_k - \mu||^2
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item \( K \): Number of clusters.
+    \item \( C_k \): The set of points in cluster \( k \).
+    \item \( \mu_k \): Centroid of cluster \( k \).
+    \item \( \mu \): Overall mean of the dataset.
+\end{itemize}
+
+
+To evaluate both of this metrics, we will calculate the Silhouette Coefficient, defined as
+
+\begin{equation}
+s_i = \frac{(b_i - a_i)}{max(a_i, b_i)},
+\end{equation}
+
+where $a_i$ is the cohesion and $b_i$ is the separation.
+This measure ranges from -1 to 1, and will be used to quantify how well each data point is matched to its own cluster compared to other clusters, where a higher silhouette coefficient indicates better-defined clusters.
+
+# Results
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+### load Packages and data
+
+library(ggdendro)
+library(tidyverse)
+library(patchwork)
+library(sparcl)
+library(factoextra)
+library(caret)
+library(fpc)
+library(cluster)
+library(gridExtra)
+library(gridGraphics)
+library(knitr)
+library(kableExtra)
+library(patchwork)
+
+
+df <- read.csv("../raw_data/training_obsolete.csv")
+
+df_unsupervised <- df[, -1]   # remove the 'class' column
+df_unsupervised <- scale(df_unsupervised)  # standardize
+
+### Hierarchical clustering with complete Linkage
+
+set.seed(123)
+distances_hc_eucl <- dist(df_unsupervised, method = "euclidean")
+result_hc_eucl_comp <- hclust(distances_hc_eucl, method = "complete")
+
+# dendrogram
+plot_hc_complete <- ggdendrogram(result_hc_eucl_comp, labels = FALSE)
+
+# cut the tree into 9 clusters
+clus_hc_eucl_comp <- as.factor(cutree(result_hc_eucl_comp, 9))
+
+# bootstrap stability
+cboot_hc <- clusterboot(
+  df_unsupervised,
+  clustermethod = hclustCBI,
+  method = "complete",
+  k = 9,
+  seed = 123
+)
+cboot_values_hc <- cboot_hc$bootmean  # cluster stability
+
+# External validity: map clusters to most frequent actual class
+df_labels <- df
+df_labels$cluster_hc_eucl_comp <- clus_hc_eucl_comp  # Add cluster assignments to the original dataset
+
+# Count the number of occurrences of each class within each cluster
+cluster_hc_eucl_comp_mapping <- df_labels %>%
+  group_by(cluster_hc_eucl_comp, class) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(cluster_hc_eucl_comp, desc(count))  # Ensure sorting by most frequent class
+cluster_hc_eucl_comp_mapping
+
+# Select the most frequent class for each cluster
+cluster_hc_eucl_comp_lookup <- cluster_hc_eucl_comp_mapping %>%
+  group_by(cluster_hc_eucl_comp) %>%
+  filter(count == max(count)) %>%  # Select the most frequent class
+  ungroup() %>%
+  select(cluster_hc_eucl_comp, class)  # Keep only cluster-class mapping
+cluster_hc_eucl_comp_lookup
+
+# Join the mapping back to the original dataset
+df_labels <- df_labels %>%
+  left_join(cluster_hc_eucl_comp_lookup, by = "cluster_hc_eucl_comp", , suffix = c("", "_pred_hc_eucl_comp"))
+df_labels$class <- as.factor(df_labels$class)
+df_labels$class_pred_hc_eucl_comp <- as.factor(df_labels$class_pred_hc_eucl_comp)
+
+head(df_labels)
+
+df_labels$class <- as.factor(df_labels$class)
+df_labels$class_pred_hc_eucl_comp <- as.factor(df_labels$class_pred_hc_eucl_comp)
+
+# confusion matrix
+
+#add factor level called 'tree', 'shadow', 'soil'
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'tree ')
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'shadow ')
+levels(df_labels$class_pred_hc_eucl_comp) <- c(levels(df_labels$class_pred_hc_eucl_comp), 'soil ')
+
+# confusion matrix
+conf_mat_hc <- confusionMatrix(df_labels$class, df_labels$class_pred_hc_eucl_comp)
+
+# silhouette
+sil_val_hc <- mean(silhouette(cutree(result_hc_eucl_comp, 9), distances_hc_eucl)[, 3])
+
+### PCA + Hierarchical Clustering
+
+pca <- prcomp(df_unsupervised, center = TRUE, scale = TRUE)
+screeplot(pca, type = 'lines')
+
+# we'll pick the first 9 PCs
+set.seed(123)
+
+distances_pca <- dist(pca$x[, 1:9], method = "euclidean")
+result_pca <- hclust(distances_pca, method = "complete")
+clus_pca <- as.factor(cutree(result_pca, 9))
+plot_pca_dend <- ggdendrogram(result_pca, labels = FALSE)
+
+# bootstrap stability
+cboot_shc <- clusterboot(
+  pca$x[, 1:9],
+  clustermethod = hclustCBI,
+  method = "complete",
+  k = 9,
+  seed = 123
+)
+cboot_values_shc <- cboot_shc$bootmean
+
+# external validity (confusion matrix)
+
+# Select the most frequent class for each cluster
+df_labels$cluster_pca <- clus_pca
+
+cluster_pca_mapping <- df_labels %>%
+  group_by(cluster_pca, class) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  arrange(cluster_pca, desc(count))
+
+cluster_pca_lookup <- cluster_pca_mapping %>%
+  group_by(cluster_pca) %>%
+  filter(count == max(count)) %>%
+  ungroup() %>%
+  select(cluster_pca, class)
+
+# Join the mapping back to the original dataset
+df_labels <- df_labels %>%
+  left_join(cluster_pca_lookup,
+            by = "cluster_pca",
+            suffix = c("", "_pred_pca"))
+
+df_labels$class_pred_pca <- as.factor(df_labels$class_pred_pca)
+
+# confusion matrix
+conf_mat_pca <- confusionMatrix(df_labels$class, df_labels$class_pred_pca)
+
+# Silhouette for PCA-based clustering
+sil_val_pca <- mean(silhouette(cutree(result_pca, 9), distances_pca)[, 3])
+
+### Generate and Store Plots
+
+# Calculate variance explained (PCA+HC)
+var_explained <- pca$sdev^2 / sum(pca$sdev^2)
+df_scree <- data.frame(
+  PC = seq_along(var_explained)[1:10],
+  Variance = var_explained[1:10]
+)
+
+# Build a ggplot scree plot
+screeplot_gg <- ggplot(df_scree, aes(x = PC, y = Variance)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "",
+       x = "Principal Component",
+       y = "Proportion of Variance Explained") +
+  theme_minimal()
+
+# Plot PC1 vs PC2 colored by cluster vs. true class
+pca_data <- as.data.frame(pca$x[, 1:9])
+pca_data$clus_pca <- clus_pca
+pca_data$true_class <- df$class
+
+p1 <- ggplot(pca_data, aes(x = PC1, y = PC2, color = clus_pca)) +
+  geom_point() +
+  labs(
+    title = "Cluster Assignments",
+    x = "PC1",
+    y = ""
+  ) +
+  theme_minimal() 
+
+p2 <- ggplot(pca_data, aes(x = PC1, y = PC2, color = true_class)) +
+  geom_point() +
+  labs(
+    title = "True Classes",
+    x = "PC1",  
+    y = "PC2"      # Remove to avoid repeating y-axis label
+  ) +
+  theme_minimal() 
+
+# Combine the two plots side by side with patchwork
+p_comparison <- p2 + p1 +
+  plot_layout(ncol = 2) +
+  plot_annotation(
+    theme = theme(plot.title = element_text(hjust = 0.5))
+  )
+
+
+# examples of where the clusters are easily to be misclassified
+
+p3 <- pca$x[which(df$class %in% c("tree ", "grass ")), 1:9] %>%
+  ggplot(aes(x = PC1, y = PC2, col = as.factor(df$class[which(df$class %in% c("tree ", "grass "))]))) +
+  labs(col =  "class") +
+  scale_x_continuous(limits = c(-20, 15)) + 
+  scale_y_continuous(limits = c(-20, 15)) + 
+  geom_point() + 
+  labs(
+    title = "Tree vs. Grass",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme_minimal()
+
+
+p4 <- pca$x[which(df$class %in% c("soil ", "concrete ")), 1:9] %>%
+  ggplot(aes(x = PC1, y = PC2, col = as.factor(df$class[which(df$class %in% c("soil ", "concrete "))]))) +
+  labs(col =  "class") +
+  scale_x_continuous(limits = c(-20, 15)) + 
+  scale_y_continuous(limits = c(-20, 15)) + 
+  geom_point() + 
+  labs(
+    title = "Soil vs. Concrete",
+    x = "PC1",   # remove for less redundancy
+    y = ""
+  ) +
+  theme_minimal() +
+   scale_color_manual(values=c('Dark Blue','Green'))
+
+# Combine both panels side by side
+p_compare_2 <- p3 + p4 +
+  plot_layout(ncol = 2, guides = "collect") +
+  plot_annotation(
+    title = "",
+    theme = theme(plot.title = element_text(hjust = 0.5))
+  )
+
+
+```
+
+## Hierarchical Clustering
+
+In Figure 2, we present the dendrogram produced by applying Hierarchical Clustering with complete linkage to the scaled dataset. Although the dendrogram could, in principle, guide decisions on where to “cut” the tree, here we impose a cut at nine clusters based on prior knowledge that nine distinct land-cover classes exist in the data. Visually, this means we partition the dendrogram at the level where the vertical branches divide observations into nine separate groups. Notably, some clusters merge at relatively high distances, indicating potential overlap between classes, whereas others coalesce at lower distances, suggesting more cohesive subgroups. By enforcing nine clusters to match the known categories, we can then compare these clusters directly to the true labels and assess how faithfully hierarchical clustering recovers the real-world classes under this constraint
+
+```{r fig-hc-complete, echo=FALSE, fig.cap="Dendogram for the Hierarchical Cluster"}
+
+plot_hc_complete
+```
+
+Table 1 shows the bootstrap stability of the clusters. Values close to one indicate stable clusters, so the first 3, fifth and seventh clusters have relatively higher stability.
+We next perform external validation by mapping each of the nine clusters to the most frequent true class label within that cluster and examining the confusion matrix, displayed under Table 2. While certain clusters largely matched their corresponding classes, notable confusion arose between classes such as “tree” vs. “grass,” and “concrete” vs. “soil.” This overlap highlights the spectral and textural similarities that complicate unsupervised separation. The Silhouette coefficient for this solution (0.16) further indicates relatively weak cluster separation, consistent with the observed misclassifications.
+
+\newpage
+
+```{r table-confmat-hc, echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+
+kable(
+  conf_mat_hc$table,
+  caption = "Confusion Matrix for Hierarchical Clustering",
+  booktabs = TRUE
+) %>%
+  kable_styling(
+    latex_options = c("striped","hold_position")
+  )
+
+```
+
+```{r table-boot-hc, echo=FALSE, results='asis'}
+# Create a data frame from the bootstrap stability values
+stability_df <- data.frame(
+  Cluster = seq_along(cboot_values_hc),
+  Stability = cboot_values_hc
+)
+
+kable(
+  stability_df,
+  caption = "Cluster Bootstrap Stability for Hierarchical Clustering",
+  digits = 3,          # Rounds stability values to 3 decimal places
+  booktabs = TRUE
+) %>%
+  kable_styling(
+    latex_options = c("striped","hold_position")
+  )
+
+```
+
+## PCA-Reduced Hierarchical Clustering
+
+To address the high dimensionality of the original dataset, we first performed Principal Component Analysis (PCA) before repeating the hierarchical clustering procedure. Figure 3 shows the scree plot (top), which indicates that nine principal components explain a substantial portion of the total variance, and the dendrogram (bottom) derived from these nine components. By reducing noise and redundancy in the data, this PCA transformation aimed to sharpen cluster boundaries and potentially enhance the interpretability of the dendrogram.
+
+```{r fig-shc-complete, echo=FALSE, fig.cap="Screeplot and Dendogram for the PCA + Hierarchical Cluster"}
+grid.arrange(screeplot_gg,  plot_pca_dend, ncol = 1)
+
+```
+
+Despite the dimensionality reduction, the bootstrap stability measures (Table 3) reveal somewhat lower values for most clusters than in the full-dimensional scenario, suggesting a heightened sensitivity to sampling variation within the PCA-transformed space. Moreover, the external validation (Table 4) indicates a slight decline in overall accuracy compared to standard hierarchical clustering, although the Silhouette coefficient (0.19) is marginally higher.
+
+```{r table-boot-pca, echo=FALSE, results='asis'}
+
+# Create a data frame from the bootstrap stability values
+stability_df_pca <- data.frame(
+  Cluster = seq_along(cboot_values_shc),
+  Stability = cboot_values_shc
+)
+
+kable(
+  stability_df_pca,
+  caption = "Cluster Bootstrap Stability for PCA + Hierarchical Clustering",
+  digits = 3,          # Rounds stability values to 3 decimal places
+  booktabs = TRUE
+) %>%
+  kable_styling(
+    latex_options = c("striped","hold_position")
+  )
+
+```
+\newpage
+```{r table-confmat-pca, echo=FALSE, results='asis', warning=FALSE, message=FALSE}
+kable(
+  conf_mat_pca$table,
+  caption = "Confusion Matrix for PCA + Hierarchical Clustering",
+  booktabs = TRUE
+) %>%
+  kable_styling(
+    latex_options = c("striped","hold_position")
+  )
+
+```
+
+This finding implies that certain clusters—particularly those separating “shadow” from visually similar classes—benefit from PCA, whereas classes with overlapping spectral profiles (for example, “tree” vs. “grass” or “soil” vs. “concrete”) remain problematic. In Figure 5 below, we compare clustering assignments with the true class labels. While incorporating PCA helps distinguish certain categories—such as “shadow” from visually similar classes—some clusters still exhibit overlap. In particular, Figure 5 highlights how pairs of classes with highly similar profiles (e.g., “tree” vs. “grass” and “soil” vs. “concrete”) remain problematic, resulting in substantial misclassification. This underscores the inherent challenge of separating land-cover types in urban environments, where vegetation (e.g., trees and lawns) can exhibit similar reflectance properties and materials like soil and concrete can appear alike in certain spectral bands. Consequently, although PCA helps reduce dimensionality and enhance some cluster boundaries, further strategies or additional domain-specific features may be needed to fully disentangle these closely related classes.
+
+```{r fig-pca-comparison, echo=FALSE, fig.cap="Comparison of PCA-Based Clusters vs. True Classes"}
+
+p_comparison
+
+```
+
+```{r fig-pca-comparison-two, echo=FALSE, fig.cap="Class overlaps in PCA space. The left panel compares 'tree' vs. 'grass' distributions, and the right panel, 'soil' vs. 'concrete.'"}
+# Optionally control figure size (width, height) to fit space better
+# e.g., fig.width=8, fig.height=4
+
+p_compare_2
+```
+
+# Conclusion
+
+In this report, we have investigated the effectiveness of dimensionality reduction via Principal Component Analysis (PCA) when combined with Hierarchical Clustering (HC) for classifying high-dimensional urban land cover data. The dataset, comprising nine distinct land cover classes, was analyzed to evaluate the performance of clustering algorithms in recovering meaningful groupings of spectrally and texturally similar features. By comparing the outcomes of clustering with and without PCA, we explored whether PCA could improve the separability and robustness of clusters while addressing challenges associated with high dimensionality.
+
+For this dataset, we found that incorporating PCA slightly improved clustering performance in certain aspects but did not entirely resolve the challenges posed by overlapping properties of some classes. PCA improved the Silhouette coefficient from 0.16 to 0.19, reflecting marginally better-defined clusters. Additionally, it enhanced cluster separability for specific categories, such as shadow, which benefited from the reduced dimensionality. However, substantial misclassification persisted between classes with similar profiles, such as tree vs. grass and soil vs. concrete. These results suggest that while PCA can complement HC by reducing noise and redundancy, its utility in this context is limited by the inherent similarities among certain land cover types.
+
+This conclusion aligns with findings in the broader literature on urban land cover classification, where distinguishing between spectrally similar classes has been a persistent challenge. Vegetation types like trees and grass often exhibit overlapping reflectance in multispectral imagery, while urban materials like soil and concrete may be difficult to differentiate based on their spectral characteristics alone. These challenges highlight the need for more robust features, such as temporal information, hyperspectral data, or ancillary spatial information, to improve classification accuracy. For instance, previous studies have shown that incorporating temporal data from satellite imagery or vegetation indices can better separate vegetation types by capturing seasonal changes in reflectance patterns (@lu2004urban).
+
+Several limitations in this analysis provide avenues for future research. First, the dataset was limited to a single geographic region, Deerfield Beach, Florida, which may limit the generalizability of the findings to other urban contexts with different environmental or climatic conditions. Expanding the analysis to larger, more diverse datasets could provide more robust insights into the effectiveness of PCA and HC. Additionally, while PCA focuses on maximizing variance, alternative dimensionality reduction techniques such as t-SNE or UMAP, which prioritize local neighborhood structure, might yield better separability for overlapping classes (@mcinnes2018umap). Different sparse clustering methods or ensemble techniques could also be explored to improve performance further.
+
+Finally, future studies could benefit from incorporating multi-modal datasets, such as combining multispectral imagery with LiDAR or social data, to enrich feature space and improve class separability. Previous research demonstrates that integrating these complementary data sources can significantly enhance land-cover classification accuracy (@zhu2017fusing). Such approaches could address not only spectral ambiguities but also contextualize land cover data within broader urban dynamics, offering more actionable insights for planners. Overall, this study demonstrates the potential of dimensionality reduction techniques to enhance clustering performance but underscores the continued need for innovation and integration in urban land cover analysis.
+
+# References
+<!-- Don't put anything here, your references will be inserted automatically at the end -->
